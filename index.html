@@ -42,7 +42,6 @@
     }
 
     async function fetchSheetTexts() {
-      // Append a timestamp to avoid caching using the helper.
       const url = appendTimestamp(SHEET_CSV_URL);
       const response = await fetch(url);
       const csvText = await response.text();
@@ -75,13 +74,11 @@
     }
 
     // -------------------------------------------------------
-    // 4. TTS Function Using VoiceRSS API
+    // 4. TTS Function Using Netlify Proxy
     // -------------------------------------------------------
-    // Using your VoiceRSS API key: 152c1c5a966d43e597738a44b7d55988
     async function generateTTS(text) {
-      const VOICERSS_API_KEY = '152c1c5a966d43e597738a44b7d55988';
-      const url = `https://api.voicerss.org/?key=${VOICERSS_API_KEY}&hl=en-us&src=${encodeURIComponent(text)}&r=0&c=MP3&f=44khz_16bit_stereo`;
-      return url;
+      // Calls our Netlify function at /api/tts
+      return `/api/tts?text=${encodeURIComponent(text)}`;
     }
 
     // -------------------------------------------------------
@@ -102,7 +99,7 @@
       const musicURL = randomChoice(musicFiles);
       const reelText = randomChoice(texts);
 
-      // Generate TTS audio using VoiceRSS and measure its duration.
+      // Generate TTS audio using our Netlify function and measure its duration.
       const ttsFileURL = await generateTTS(reelText);
       const ttsAudio = new Audio(ttsFileURL);
       await new Promise(resolve => {
