@@ -26,6 +26,11 @@
     const MUSIC_FOLDER_ID = '1K2SL8jk0dwXga_krTAGfbBTeR0hdJZU5';
     const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQEPprtyTWM7GuMccfkkLw_6MGj48YOAAu6o47pGSifyo6zPjYqbywiDKbxhoz1llPqMKr7KnaX219I/pub?output=csv';
     
+    // Helper function to append a timestamp query parameter correctly.
+    function appendTimestamp(url) {
+      return url.indexOf('?') > -1 ? url + '&timestamp=' + new Date().getTime() : url + '?timestamp=' + new Date().getTime();
+    }
+
     // -------------------------------------------------------
     // 2. Functions to Fetch Assets from Google Drive and Google Sheets
     // -------------------------------------------------------
@@ -37,8 +42,7 @@
     }
 
     async function fetchSheetTexts() {
-      // Append a timestamp to avoid caching.
-      const url = SHEET_CSV_URL + '?timestamp=' + new Date().getTime();
+      const url = appendTimestamp(SHEET_CSV_URL);
       const response = await fetch(url);
       const csvText = await response.text();
       const lines = csvText.split('\n');
