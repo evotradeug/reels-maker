@@ -26,9 +26,9 @@
     const MUSIC_FOLDER_ID = '1K2SL8jk0dwXga_krTAGfbBTeR0hdJZU5';
     const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQEPprtyTWM7GuMccfkkLw_6MGj48YOAAu6o47pGSifyo6zPjYqbywiDKbxhoz1llPqMKr7KnaX219I/pub?output=csv';
     
-    // Helper function to append a timestamp query parameter correctly.
+    // Helper: append a timestamp parameter correctly.
     function appendTimestamp(url) {
-      return url.indexOf('?') > -1 ? url + '&timestamp=' + new Date().getTime() : url + '?timestamp=' + new Date().getTime();
+      return url.includes('?') ? url + '&timestamp=' + new Date().getTime() : url + '?timestamp=' + new Date().getTime();
     }
 
     // -------------------------------------------------------
@@ -42,6 +42,7 @@
     }
 
     async function fetchSheetTexts() {
+      // Append a timestamp to avoid caching using the helper.
       const url = appendTimestamp(SHEET_CSV_URL);
       const response = await fetch(url);
       const csvText = await response.text();
