@@ -1,1 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Instagram Reels Generator</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    button { font-size: 1rem; padding: 10px; }
+    #downloadLink { margin-top: 20px; display: block; }
+  </style>
+</head>
+<body>
+  <h1>Instagram Reels Generator</h1>
+  <button id="generateBtn">Generate Reel</button>
+  <p id="status"></p>
+  <a id="downloadLink" style="display:none;">Download Reel</a>
+
+  <!-- Include ffmpeg.wasm from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.5/dist/ffmpeg.min.js"></script>
+  <script>
+    // -------------------------------------------------------
+    // 1. Configuration for Google APIs and Assets
+    // -------------------------------------------------------
+    const GOOGLE_API_KEY = 'AIzaSyC4vZ_kvYWp_8KiF8985XkvLEq0HGQru5c';
+    const VIDEO_FOLDER_ID = '1mYIMXu2ET88ujv400pXq0yOUpOghZ0Df';
+    const MUSIC_FOLDER_ID = '1K2SL8jk0dwXga_krTAGfbBTeR0hdJZU5';
+    const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQEPprtyTWM7GuMccfkkLw_6MGj48YOAAu6o47pGSifyo6zPjYqbywiDKbxhoz1llPqMKr7KnaX219I/pub?output=csv';
+    
+    // -------------------------------------------------------
+    // 2. Functions to Fetch Assets from Google Drive and Google Sheets
+    // -------------------------------------------------------
+    async function fetchDriveFiles(folderId) {
+      const url = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents&key=${GOOGLE_API_KEY}&fields=files(id,name)`;
+      const response = await fetch(url);
+      const data = await response.json();
+      return data.files.map(file => `https://drive.google.com/uc?export=download&id=${file.id}`);
+    }
+
+    async function fetchSheetTexts() {
+      // Append a timestamp to avoid caching.
+      const url = SHEET_CSV_URL + '?timestamp=' + new Date().getTime();
+      const response = await fetch(url);
+      const csvText = await response.text();
+      const lines = csvText.split('\n');
+      // Assuming the first line is a header.
+      const texts = lines.slice(1).map(line => {
+        const cols = line.split(',');
+        return cols[0].trim();
+      }).filter(text => text.length > 0);
+      return texts;
+    }
+
+    // Utility: randomly choose an element from an array.
+    function randomChoice(arr) {
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    // -------------------------------------------------------
+    // 3. Set Up ffmpeg.wasm
+    // -------------------------------------------------------
+    const { createFFmpeg, fetchFile } = FFmpeg;
+    const ffmpeg = createFFmpeg({ log: true });
+    let isFFmpegLoaded = false;
+    async function loadFFmpeg() {
+      if (!isFFmpegLoaded) {
+        document.getElementById('status').innerText = "Loading ffmpeg...";
+        await ffmpeg.load();
+        isFFmpegLoaded = true;
+      }
+    }
+
+    // -------------------------------------------------------
+    // 4. Simulated TTS Function
+    // -------------------------------------------------------
+    // For now, this returns a placeholder TTS audio file URL.
+    // Replace with an actual TTS solution or file if needed.
+    async function generateTTS(text) {
+      return 'https://drive.google.com/uc?export=download&id=YOUR_TTS_AUDIO_FILE_ID';
+    }
+
+    // -------------------------------------------------------
+    // 5. Main Function: Generate Reel
+    // -------------------------------------------------------
+    async function generateReel() {
+      document.getElementById('status').innerText = "Fetching asset lists...";
+
+      // Fetch lists of videos, music, and texts.
+      const videos = await fetchDriveFiles(VIDEO_FOLDER_ID);
+      const musicFiles = await fetchDriveFiles(MUSIC_FOLDER_ID);
+      const texts = await fetchSheetTexts();
+
+      document.getElementById('status').innerText = "Assets fetched. Starting reel generation...";
+
+      // Randomly select one asset from each list.
+      const videoURL = randomChoice(videos);
+      const musicURL = randomChoice(musicFiles);
+      const reelText = randomChoice(texts);
+
+      // Generate TTS audio (simulated) and measure its duration.
+      const ttsFileURL = await generateTTS(reelText);
+      const ttsAudio = new Audio(ttsFileURL);
+      await new Promise(resolve => {
+        ttsAudio.addEventListener('loadedmetadata', resolve);
+      });
+      const ttsDuration = ttsAudio.duration;
+      document.getElementById('status').innerText = `TTS duration: ${ttsDuration.toFixed(2)} seconds`;
+
+      // Load ffmpeg.wasm.
+      await loadFFmpeg();
+
+      // Write the media files into ffmpeg's virtual file system.
+      document.getElementById('status').innerText = "Fetching media files...";
+      await ffmpeg.FS('writeFile', 'input_video.mp4', await fetchFile(videoURL));
+      await ffmpeg.FS('writeFile', 'input_music.mp3', await fetchFile(musicURL));
+      await ffmpeg.FS('writeFile', 'input_tts.mp3', await fetchFile(ttsFileURL));
+      await ffmpeg.FS('writeFile', 'Arial.ttf', await fetchFile('Arial.ttf'));
+
+      // Process the video:
+      // - Overlay the reelText as TikTok-style subtitles.
+      // - Mix the background music and TTS audio.
+      // - Trim the video and music to match the TTS audio duration.
+      document.getElementById('status').innerText = "Processing video...";
+      await ffmpeg.run(
+        '-i', 'input_video.mp4',
+        '-i', 'input_music.mp3',
+        '-i', 'input_tts.mp3',
+        '-filter_complex',
+          "[1:a][2:a]amix=inputs=2:duration=first[aout]",
+        '-vf', `drawtext=fontfile=Arial.ttf:text='${reelText}':fontcolor=white:fontsize=28:borderw=2:bordercolor=black:shadowcolor=black:shadowx=2:shadowy=2:x=(w-text_w)/2:y=h-100`,
+        '-t', `${ttsDuration}`,
+        '-map', '0:v',
+        '-map', '[aout]',
+        'output.mp4'
+      );
+
+      // Retrieve the processed video and provide a download link.
+      document.getElementById('status').innerText = "Finalizing reel...";
+      const data = ffmpeg.FS('readFile', 'output.mp4');
+      const videoBlob = new Blob([data.buffer], { type: 'video/mp4' });
+      const url = URL.createObjectURL(videoBlob);
+      const downloadLink = document.getElementById('downloadLink');
+      downloadLink.href = url;
+      downloadLink.download = 'reel.mp4';
+      downloadLink.style.display = 'block';
+      downloadLink.innerText = "Download Reel";
+      document.getElementById('status').innerText = "Reel generated successfully!";
+    }
+
+    // -------------------------------------------------------
+    // 6. Set Up the Button Event Listener
+    // -------------------------------------------------------
+    document.getElementById('generateBtn').addEventListener('click', generateReel);
+  </script>
+</body>
+</html>
 
